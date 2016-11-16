@@ -8,11 +8,10 @@
 #include <DNSServer.h>
 #include <ESP8266mDNS.h>
 #include <FS.h>
-#include <WebSocketsServer.h>
 #include <Hash.h>
  
  
-#define FASTLED_FORCE_SOFTWARE_SPI
+ 
 #include <FastLED.h>
 #define HalSensor 14
 #define NUM_LEDS  144 //number of leds in strip length on one side
@@ -37,7 +36,7 @@ volatile uint32_t t_start_round=0,t_stop_round=0,OpenlastTime=0,lastLineShow=0,l
 volatile uint32_t lineInterval=400;
 
 
-WebSocketsServer webSocket = WebSocketsServer(81);
+ 
 ESP8266WebServer server(80);
 const byte DNS_PORT = 53;
 DNSServer dnsServer;
@@ -193,55 +192,13 @@ void showActiveImage(void)
  server.send(200, "text/plain", records); 
 }
 /////////////////////////////////              webSocket              ///////////////////////////////////////
-void parse_webSocket(String income, byte num){
-     byte eqI1 = income.indexOf('=');
- String cammand = income.substring(0, eqI1);// Serial.print(" cammand=");Serial.println(cammand);
- String value   = income.substring(eqI1+1); //Serial.print(" value=");Serial.println(value);
-     if(cammand=="RST")  { // [-Standalone-]
-             
-            } 
-//'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
- 
-
-//''''''''''''''''''''''''''''''''''''' setting page ''''''''''''''''''''''''''''''''''''''''''''''
- 
+''''''''''''''''''''''''''''''''''' setting page ''''''''''''''''''''''''''''''''''''''''''''''
+void display(String command){
+  (command[As+1]=='1')?SHOW=true:SHOW=false;
+} 
    
-else if(cammand=="SHO") {  //SHO=showbottom@1       [-Standalone-]      
-                          byte As=value.indexOf('@'); 
-                          (value[As+1]=='1')?SHOW=true:SHOW=false;
-                           
-                          }  
- 
 
-//'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''             
-else if(cammand=="RRE")    ESP.restart();// restart    [----SN---]
-  
  
-}
-void webSocketEvent(uint8_t num, WStype_t type, uint8_t * payload, size_t lenght) {
- client_num=num;
- switch(type) {
-        case WStype_DISCONNECTED:
-                                 Serial.printf("[WS:%u Disconnected!]\n", num); 
-                 ACCESS=false;
-        break;
-        case WStype_CONNECTED:   { 
-                       IPAddress ip = webSocket.remoteIP(num);
-                   ACCESS=true;
-                  Serial.print("[WS:]Clinet "); Serial.print(num); Serial.print(" CONNECTED with IP: ");Serial.println(ip);
-                  
-                 } 
-        break;
-        case WStype_TEXT:    // this for  webSocket request          
-                String text = String((char *) &payload[0]);
-                Serial.print("[WS:"); Serial.print(num);Serial.print("]");Serial.println(text);
-                parse_webSocket(text,num);
-        break;
-        
-        
-      }
-
-}
 /////////////////////////////////              webSocket              ///////////////////////////////////////
 String formatBytes(size_t bytes){
        if (bytes < 1024)                 return String(bytes)+"B"; 
@@ -359,27 +316,15 @@ void process() // this for httml request
 {
   Serial.print("[HTML]"); Serial.print(server.arg(0)); Serial.print("  ACCESS="); Serial.println(ACCESS); 
    
-       if(server.arg(0)=="WSS") send_My_IP();  //http://192.168.4.1/process?code=RGM [-WS-]     
+       if(server.arg(0)=="WSS") send_My_IP();  
   else if(server.arg(0)=="IMG") Show_Image_List() ;// CONFIG  
   else if(server.arg(0)=="SLF") show_listfile() ;// CONFIG  
-  else if(server.arg(0)=="RNF") RenameFile(server.arg(1),server.arg(2),server.arg(3));//http://192.168.4.1/process?code=RRN&patch=patch& [-CONFIG-]
-  else if(server.arg(0)=="CRF") Createfile(server.arg(1),server.arg(2)) ; //http://192.168.4.1/process?code=RCF&patch=patch&file=file   [-CONFIG-]
-  else if(server.arg(0)=="REF") removefile(server.arg(1),server.arg(2)) ; //http://192.168.4.1/process?code=RRF&patch=patch&file=file [-CONFIG-]
-  else if(server.arg(0)=="SFC") show_file_content(server.arg(1),server.arg(2)) ;//http://192.168.4.1/process?code=RGP&patch=patch&file=file [-CONFIG-] 
-  else if(server.arg(0)=="USL") update_show_list(); //update_show_list()->_AJX-> _imageList  [-CONFIG-]
+  else if(server.arg(0)=="SHO") display(server.arg(1)); 
+  else if(server.arg(0)=="SFC") show_file_content(server.arg(1),server.arg(2)) ; 
+  else if(server.arg(0)=="USL") update_show_list(); 
   else if(server.arg(0)=="RUL") show_user_list("/data/user.dat","ListUserListBox","parse_line_and_put_inform"); 
-  else if(server.arg(0)=="AUS") AddUser(server.arg(1),server.arg(2),server.arg(3));//http://192.168.4.1/process?code=RAU&user=user&pass=pass&scop=scop [-Standalone-]
-  else if(server.arg(0)=="RUS") RemoveUser(server.arg(1)[0]-'0');//http://192.168.4.1/process?code=RRU&index=index  [-Standalone-]
-  else if(server.arg(0)=="SCN") ScanNetwork(); //[-Standalone-]
-  
-  
-    if(!ACCESS) return;      
-   else if(server.arg(0)[1]=='D' && server.arg(0)[2]=='V') send_raw_data("device.dat","TBL"); //http://192.168.4.100/process?code=RRZ  retrive  ides [-Network-]
-  else if(server.arg(0)[1]=='S' && server.arg(0)[2]=='T') {server.send(200, "text/plain", ""); delay(500); ESP.restart();} //[-Standalone-]
-  
-  
-  
-  
+ else if(server.arg(0)[1]=='S' && server.arg(0)[2]=='T') {server.send(200, "text/plain", ""); delay(500); ESP.restart();}  
+   
   }
 
  
@@ -423,19 +368,10 @@ void handleFileUploadImage(){
 }
  
 
-void handleRoot() {
- 
-  
-     handleFileRead("/Sindex.html");
-   
+void handleRoot() {  
+     handleFileRead("/Sindex.html");   
 }
-void send_config_html(void){
- 
-}
-void handleConfig(){
- 
- send_config_html();
-}
+
 void handleOther(){
  if(!handleFileRead(server.uri()))
   {
@@ -456,8 +392,6 @@ void handleOther(){
 }
 
  
-
-
 
  void readFile(String testFile){ 
  Serial.print("Read File \""+testFile); 
@@ -522,9 +456,6 @@ Serial.print("AP IP address: ");Serial.println(MyIP.c_str());
   size_t hz = sizeof(headerkeys)/sizeof(char*); 
   server.collectHeaders(headerkeys, hz ); //ask server to track these headers
   
-  webSocket.begin();
-  webSocket.onEvent(webSocketEvent);
- delay(500);
  
  attachInterrupt(digitalPinToInterrupt(HalSensor), Rotate_1_round, FALLING);
  OpenlastTime=millis();
